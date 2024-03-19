@@ -16,6 +16,8 @@ mkdir -p /etc/UDPCustom
 sudo touch /etc/UDPCustom/udp-custom
 udp_dir='/etc/UDPCustom'
 udp_file='/etc/UDPCustom/udp-custom'
+sudo touch /etc/UDPCustom/user_connections.txt
+chmod 666 /etc/UDPCustom/user_connections.txt
 
 sudo apt update -y
 sudo apt upgrade -y
@@ -73,7 +75,14 @@ else
   rm -rf /etc/udpgw.service &>/dev/null
   systemctl stop udpgw &>/dev/null
   systemctl stop udp-custom &>/dev/null
-  # systemctl stop udp-request &>/dev/null
+
+  # Download required files
+  wget -O "$udp_dir/limiter_support.sh" "https://raw.githubusercontent.com/mozone20/udp_manager/main/module/support_limiter.sh"
+  wget -O "$udp_dir/limiter_run.py" "https://raw.githubusercontent.com/mozone20/udp_manager/main/module/limiter_run.py"
+  
+  # Set permissions
+  chmod +x "$udp_dir/limiter_support.sh"
+  chmod +x "$udp_dir/limiter_run.py"
 
  # [+get files ⇣⇣⇣+]
   source <(curl -sSL 'https://raw.githubusercontent.com/mozone20/udp_manager/main/module/module') &>/dev/null
@@ -112,6 +121,27 @@ else
   # [+config+]
   wget "https://raw.githubusercontent.com/mozone20/udp_manager/main/config/config.json" -O /root/udp/config.json &>/dev/null
   chmod +x /root/udp/config.json
+
+  cat << EOF > /etc/systemd/system/udp_limiter.service
+[Unit]
+Description=UDP Manager Limiter Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 $udp_dir/limiter_run.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  # Reload systemd manager configuration
+  systemctl daemon-reload
+
+  # Enable and start the service
+  systemctl enable udp_limiter
+  systemctl start udp_limiter
 
   # [+menu+]
   wget -O /usr/bin/udp 'https://raw.githubusercontent.com/mozone20/udp_manager/main/module/udp' 
